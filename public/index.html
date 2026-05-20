@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ciranda | Fermento Cultural</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="entry" id="entryView">
+        <div class="brand-card">
+          <div class="brand-mark" aria-hidden="true">C</div>
+          <p class="eyebrow">Plataforma Fermento</p>
+          <h1>Ciranda</h1>
+          <p class="lead">Sala de encontro para reunioes, escutas e articulacoes socioculturais.</p>
+          <div class="brand-note">Modulo independente em preparacao para videoconferencia real.</div>
+        </div>
+
+        <form class="entry-form" id="joinForm">
+          <div>
+            <p class="eyebrow">Entrar na roda</p>
+            <h2>Prepare sua sala</h2>
+          </div>
+
+          <label>
+            Nome do participante
+            <input id="participantName" name="participantName" maxlength="60" autocomplete="name" placeholder="Ex: Cicero" required />
+          </label>
+
+          <label>
+            Nome da sala
+            <input id="roomName" name="roomName" maxlength="80" placeholder="Ex: conselho-cultura" required />
+          </label>
+
+          <button type="submit">Entrar na Ciranda</button>
+        </form>
+      </section>
+
+      <section class="room hidden" id="roomView">
+        <header class="room-header">
+          <div class="room-title">
+            <div class="brand-mark small" aria-hidden="true">C</div>
+            <div>
+              <p class="eyebrow">Ciranda ao vivo</p>
+              <h2 id="activeRoomName">sala</h2>
+            </div>
+          </div>
+
+          <div class="status-pill" id="connectionStatus">
+            <span></span>
+            Preparando conexao
+          </div>
+        </header>
+
+        <div class="room-layout">
+          <section class="video-stage" aria-label="Area de video">
+            <article class="video-tile local">
+              <video id="localVideo" autoplay playsinline muted></video>
+              <div class="empty-video" id="localEmpty">
+                <div class="avatar">VC</div>
+                <strong>Camera local</strong>
+                <p>Permita audio e video para testar sua presenca.</p>
+              </div>
+              <span class="tile-name" id="localNameTag">Voce</span>
+            </article>
+
+            <article class="video-tile remote">
+              <div class="empty-video">
+                <div class="avatar">+</div>
+                <strong>Conexao WebRTC preparada</strong>
+                <p>Esta area recebera participantes por conexao direta, feita no proprio Ciranda.</p>
+              </div>
+              <span class="tile-name">Participante remoto</span>
+            </article>
+          </section>
+
+          <aside class="side-panel">
+            <section class="panel">
+              <div class="panel-title">
+                <h3>Participantes</h3>
+                <span id="participantCount">1</span>
+              </div>
+              <ul id="participantList"></ul>
+            </section>
+
+            <section class="panel provider-panel">
+              <h3>Motor de video</h3>
+              <p id="providerStatus">Estrutura pronta para evoluir com WebRTC direto.</p>
+            </section>
+          </aside>
+        </div>
+
+        <footer class="controls" aria-label="Controles da chamada">
+          <button type="button" id="micButton" class="control" aria-pressed="false">Microfone</button>
+          <button type="button" id="cameraButton" class="control" aria-pressed="false">Camera</button>
+          <button type="button" id="screenButton" class="control" aria-pressed="false">Tela</button>
+          <button type="button" id="leaveButton" class="control danger">Sair</button>
+        </footer>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
