@@ -118,7 +118,7 @@
   padding: 13px 14px;
 }
 
-.mode-list button,
+.panel .mode-list button,
 .home-room-item,
 .fixed-room-item,
 .history-item,
@@ -134,13 +134,13 @@
   text-align: left;
 }
 
-.mode-list button,
+.panel .mode-list button,
 .home-room-item,
 .fixed-room-item {
   cursor: pointer;
 }
 
-.mode-list button:hover,
+.panel .mode-list button:hover,
 .home-room-item:hover,
 .home-room-item.active,
 .fixed-room-item:hover,
@@ -149,25 +149,27 @@
   background: rgba(255, 204, 0, 0.1);
 }
 
-.mode-list button.disabled {
+.panel .mode-list button.disabled {
   cursor: default;
   opacity: 0.58;
 }
 
-.mode-list button.disabled:hover {
+.panel .mode-list button.disabled:hover {
   border-color: rgba(255, 204, 0, 0.14);
   background: rgba(255, 255, 255, 0.045);
 }
 
-.mode-list strong,
+.panel .mode-list strong,
 .home-room-item strong,
 .fixed-room-item strong,
 .history-item strong,
 .calendar-preview strong {
+  display: block;
+  color: var(--text);
   font-size: 15px;
 }
 
-.mode-list span,
+.panel .mode-list span,
 .home-room-item span,
 .fixed-room-item span,
 .history-item span,
@@ -175,6 +177,7 @@
 #fixedRoomDetailSlug,
 #driveStatusText,
 .fixed-empty {
+  display: block;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
