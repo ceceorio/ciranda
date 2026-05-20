@@ -14,6 +14,9 @@ const participantCount = document.querySelector("#participantCount");
 const participantList = document.querySelector("#participantList");
 const roomLink = document.querySelector("#roomLink");
 const copyLinkButton = document.querySelector("#copyLinkButton");
+const captionState = document.querySelector("#captionState");
+const translationState = document.querySelector("#translationState");
+const latencyState = document.querySelector("#latencyState");
 const chatMessages = document.querySelector("#chatMessages");
 const chatForm = document.querySelector("#chatForm");
 const chatInput = document.querySelector("#chatInput");
@@ -21,6 +24,7 @@ const micButton = document.querySelector("#micButton");
 const cameraButton = document.querySelector("#cameraButton");
 const screenButton = document.querySelector("#screenButton");
 const captionButton = document.querySelector("#captionButton");
+const testCaptionButton = document.querySelector("#testCaptionButton");
 const translationSelect = document.querySelector("#translationSelect");
 const voiceTranslationButton = document.querySelector("#voiceTranslationButton");
 const leaveButton = document.querySelector("#leaveButton");
@@ -42,6 +46,11 @@ let polite = false;
 let translationWarningShown = false;
 let remoteCaptionSequence = 0;
 let voiceTranslationEnabled = false;
+let captionSequence = 0;
+let lastPartialCaptionAt = 0;
+let lastCaptionText = "";
+
+const translatorCache = new Map();
 
 const rtcConfig = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -66,6 +75,20 @@ if (initialRoom) {
 function setStatus(text, state = "waiting") {
   connectionStatus.dataset.state = state;
   connectionStatus.lastChild.textContent = text;
+}
+
+function setCaptionDiagnostics({ caption, translation, latency } = {}) {
+  if (caption) {
+    captionState.textContent = caption;
+  }
+
+  if (translation) {
+    translationState.textContent = translation;
+  }
+
+  if (latency) {
+    latencyState.textContent = latency;
+  }
 }
 
 function getRoomUrl(id = roomId) {
@@ -173,8 +196,11 @@ function showCaption(text) {
 async function translateCaption(text) {
   const targetLanguage = translationSelect.value;
   if (targetLanguage === "off") {
-    return { displayText: text, speechText: text, language: "pt-BR" };
+    setCaptionDiagnostics({ translation: "Sem traducao" });
+    return { displayText: text, speechText: text, language: "pt-BR", translated: false, elapsedMs: 0 };
   }
+
+  const startedAt = performance.now();
 
   try {
     if (!("Translator" in window)) {
@@ -182,18 +208,30 @@ async function translateCaption(text) {
         setStatus("Traducao indisponivel neste navegador.", "waiting");
         translationWarningShown = true;
       }
-      return { displayText: text, speechText: text, language: "pt-BR" };
+      setCaptionDiagnostics({ translation: "Indisponivel neste navegador" });
+      return { displayText: text, speechText: text, language: "pt-BR", translated: false, elapsedMs: 0 };
     }
 
-    const translator = await window.Translator.create({
-      sourceLanguage: "pt",
-      targetLanguage,
-    });
+    if (!translatorCache.has(targetLanguage)) {
+      translatorCache.set(
+        targetLanguage,
+        window.Translator.create({
+          sourceLanguage: "pt",
+          targetLanguage,
+        }),
+      );
+    }
+
+    const translator = await translatorCache.get(targetLanguage);
     const translated = await translator.translate(text);
+    const elapsedMs = Math.round(performance.now() - startedAt);
+    setCaptionDiagnostics({ translation: `${languageNames[targetLanguage]} (${elapsedMs} ms)` });
     return {
       displayText: `${languageNames[targetLanguage]}: ${translated}`,
       speechText: translated,
       language: speechLanguages[targetLanguage],
+      translated: true,
+      elapsedMs,
     };
   } catch (error) {
     console.error(error);
@@ -201,7 +239,8 @@ async function translateCaption(text) {
       setStatus("Nao consegui traduzir esta legenda.", "waiting");
       translationWarningShown = true;
     }
-    return { displayText: text, speechText: text, language: "pt-BR" };
+    setCaptionDiagnostics({ translation: "Falhou, mostrando original" });
+    return { displayText: text, speechText: text, language: "pt-BR", translated: false, elapsedMs: 0 };
   }
 }
 
@@ -216,11 +255,25 @@ function speakCaption(text, language) {
   window.speechSynthesis.speak(utterance);
 }
 
-async function showTranslatedCaption(text, sequence) {
+async function showTranslatedCaption(text, sequence, meta = {}) {
   const translated = await translateCaption(text);
   if (sequence === remoteCaptionSequence) {
     showCaption(translated.displayText);
     speakCaption(translated.speechText, translated.language);
+
+    if (meta.createdAt) {
+      const latency = Math.max(0, Date.now() - meta.createdAt);
+      const translationPart = translated.elapsedMs ? ` + traducao ${translated.elapsedMs} ms` : "";
+      setCaptionDiagnostics({ latency: `${latency} ms${translationPart}` });
+    }
+  }
+}
+
+async function showOwnCaption(text, sequence) {
+  const prefix = translationSelect.value === "off" ? "Voce" : "Voce traduzido";
+  const translated = await translateCaption(`${prefix}: ${text}`);
+  if (sequence === captionSequence) {
+    showCaption(translated.displayText);
   }
 }
 
@@ -283,7 +336,7 @@ function createConnection() {
   };
 }
 
-async function handleSignal({ payload, id, type }) {
+async function handleSignal({ payload, id, type, createdAt }) {
   lastMessageId = id;
 
   if (type === "peer-joined") {
@@ -306,7 +359,9 @@ async function handleSignal({ payload, id, type }) {
       addChatMessage({ name: payload.chat.name || "Pessoa", text: payload.chat.text });
     } else if (payload.caption) {
       const sequence = (remoteCaptionSequence += 1);
-      showTranslatedCaption(`${payload.caption.name}: ${payload.caption.text}`, sequence);
+      showTranslatedCaption(`${payload.caption.name}: ${payload.caption.text}`, sequence, {
+        createdAt: payload.caption.sentAt || createdAt || null,
+      });
     } else if (payload.description) {
       const offerCollision =
         payload.description.type === "offer" &&
@@ -388,7 +443,7 @@ async function enterRoom(event) {
     createConnection();
     renderParticipants(data.participants || [{ id: peerId, name: localName }]);
     setStatus(data.peers > 1 ? "Conectando a roda..." : "Esperando a roda crescer...", "waiting");
-    pollTimer = setInterval(pollMessages, 900);
+    pollTimer = setInterval(pollMessages, 350);
     await pollMessages();
   } catch (error) {
     console.error(error);
@@ -474,16 +529,23 @@ function createSpeechRecognition() {
 
     text = text.trim();
     if (text) {
-      showCaption(`Voce: ${text}`);
+      const sequence = (captionSequence += 1);
+      showOwnCaption(text, sequence);
+      setCaptionDiagnostics({ caption: hasFinal ? "Captou frase" : "Ouvindo..." });
     }
 
-    if (text && hasFinal) {
-      sendSignal({ caption: { name: localName, text } }).catch(console.error);
+    const now = Date.now();
+    const shouldSendPartial = text && !hasFinal && now - lastPartialCaptionAt > 700 && text !== lastCaptionText;
+    if (text && (hasFinal || shouldSendPartial)) {
+      lastPartialCaptionAt = now;
+      lastCaptionText = text;
+      sendSignal({ caption: { name: localName, text, partial: !hasFinal, sentAt: now } }).catch(console.error);
     }
   };
 
   speech.onerror = (event) => {
     const reason = event.error === "not-allowed" ? "Permissao de microfone bloqueada." : "As legendas nao conseguiram ouvir o microfone.";
+    setCaptionDiagnostics({ caption: reason });
     setStatus(reason, "error");
   };
   speech.onend = () => {
@@ -499,12 +561,14 @@ function toggleCaptions() {
   if (captionButton.getAttribute("aria-pressed") === "true") {
     recognition?.stop();
     captionButton.setAttribute("aria-pressed", "false");
+    setCaptionDiagnostics({ caption: "Desligada" });
     setStatus("Legendas desligadas.", "waiting");
     return;
   }
 
   recognition = recognition || createSpeechRecognition();
   if (!recognition) {
+    setCaptionDiagnostics({ caption: "Nao suportada" });
     setStatus("Seu navegador nao tem legendas automaticas nesta API.", "error");
     return;
   }
@@ -512,10 +576,26 @@ function toggleCaptions() {
   try {
     recognition.start();
     captionButton.setAttribute("aria-pressed", "true");
+    setCaptionDiagnostics({ caption: "Ouvindo microfone" });
     setStatus("Legendas ligadas. Fale para testar.", "ready");
   } catch (error) {
     console.error(error);
   }
+}
+
+function testCaptionFlow() {
+  const sequence = (captionSequence += 1);
+  const startedAt = performance.now();
+  const text = "Estamos testando legenda, traducao, posicionamento e latencia.";
+
+  showOwnCaption(text, sequence).then(() => {
+    const elapsed = Math.round(performance.now() - startedAt);
+    setCaptionDiagnostics({
+      caption: "Teste exibido",
+      latency: `${elapsed} ms no navegador`,
+    });
+    setStatus("Teste de legenda exibido.", "ready");
+  });
 }
 
 function toggleVoiceTranslation() {
@@ -565,7 +645,10 @@ async function leaveRoom() {
   voiceTranslationEnabled = false;
   peerId = "";
   lastMessageId = "";
+  lastPartialCaptionAt = 0;
+  lastCaptionText = "";
   roomLink.value = "";
+  setCaptionDiagnostics({ caption: "Desligada", translation: "Sem traducao", latency: "--" });
   resetChat();
   renderParticipants([]);
   roomView.classList.add("hidden");
@@ -580,8 +663,13 @@ cameraButton.addEventListener("click", () => toggleTrack("video", cameraButton))
 screenButton.addEventListener("click", toggleScreenShare);
 chatForm.addEventListener("submit", sendChatMessage);
 captionButton.addEventListener("click", toggleCaptions);
+testCaptionButton.addEventListener("click", testCaptionFlow);
 translationSelect.addEventListener("change", () => {
   translationWarningShown = false;
+  translatorCache.clear();
+  setCaptionDiagnostics({
+    translation: translationSelect.value === "off" ? "Sem traducao" : `Preparada para ${languageNames[translationSelect.value]}`,
+  });
   setStatus("Preferencia de traducao atualizada.", "waiting");
 });
 voiceTranslationButton.addEventListener("click", toggleVoiceTranslation);
