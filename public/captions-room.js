@@ -20,13 +20,17 @@ function shortLanguage(language) {
 function patchSpeechAndTranslationProviders() {
   const OriginalSpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (OriginalSpeechRecognition && !window.CIRANDA_SPEECH_PATCHED) {
-    class CirandaSpeechRecognition extends OriginalSpeechRecognition {
-      start() {
-        this.lang = window.CIRANDA_CAPTION_SOURCE_LANGUAGE || "pt-BR";
-        return super.start();
-      }
+    function CirandaSpeechRecognition() {
+      const recognition = new OriginalSpeechRecognition();
+      const originalStart = recognition.start.bind(recognition);
+      recognition.start = () => {
+        recognition.lang = window.CIRANDA_CAPTION_SOURCE_LANGUAGE || "pt-BR";
+        return originalStart();
+      };
+      return recognition;
     }
 
+    CirandaSpeechRecognition.prototype = OriginalSpeechRecognition.prototype;
     window.SpeechRecognition = CirandaSpeechRecognition;
     window.webkitSpeechRecognition = CirandaSpeechRecognition;
     window.CIRANDA_SPEECH_PATCHED = true;
