@@ -2,6 +2,9 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const storage = require("./src/storage");
+const driveService = require("./src/services/google-drive");
+const recordingService = require("./src/services/recording");
 
 const PORT = Number(process.env.PORT || 3002);
 const ROOT_DIR = __dirname;
@@ -88,6 +91,82 @@ function getStaticDir() {
 }
 
 async function handleApi(req, res, url) {
+  if (req.method === "GET" && url.pathname === "/api/fixed-rooms") {
+    sendJson(res, 200, { rooms: storage.listRooms() });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/fixed-rooms") {
+    const body = await readBody(req);
+    const room = storage.createRoom(body);
+    sendJson(res, 201, { room });
+    return;
+  }
+
+  const fixedRoomMatch = url.pathname.match(/^\/api\/fixed-rooms\/([^/]+)(?:\/([^/]+))?$/);
+  if (fixedRoomMatch) {
+    const roomSlug = decodeURIComponent(fixedRoomMatch[1]);
+    const action = fixedRoomMatch[2] || "";
+
+    if (req.method === "GET" && !action) {
+      const room = storage.getRoomBySlug(roomSlug);
+      if (!room) {
+        sendJson(res, 404, { error: "Sala fixa nao encontrada." });
+        return;
+      }
+
+      sendJson(res, 200, {
+        room,
+        drive: driveService.getDriveStatus(room),
+      });
+      return;
+    }
+
+    if (req.method === "PATCH" && !action) {
+      const body = await readBody(req);
+      const room = storage.getRoomBySlug(roomSlug);
+      if (!room) {
+        sendJson(res, 404, { error: "Sala fixa nao encontrada." });
+        return;
+      }
+
+      sendJson(res, 200, { room: storage.updateRoom(room.id, body) });
+      return;
+    }
+
+    if (req.method === "GET" && action === "sessions") {
+      sendJson(res, 200, { sessions: storage.listSessions(roomSlug) });
+      return;
+    }
+
+    if (req.method === "POST" && action === "sessions") {
+      const body = await readBody(req);
+      const session = storage.createSession(roomSlug, body);
+      sendJson(res, 201, { session });
+      return;
+    }
+
+    if (req.method === "GET" && action === "files") {
+      sendJson(res, 200, storage.listRoomFiles(roomSlug));
+      return;
+    }
+  }
+
+  const recordingMatch = url.pathname.match(/^\/api\/video-sessions\/([^/]+)\/recordings\/(start|stop)$/);
+  if (req.method === "POST" && recordingMatch) {
+    const sessionId = decodeURIComponent(recordingMatch[1]);
+    const action = recordingMatch[2];
+    const body = await readBody(req);
+
+    if (action === "start") {
+      sendJson(res, 202, { recording: await recordingService.startRecording(sessionId) });
+      return;
+    }
+
+    sendJson(res, 200, { recording: await recordingService.stopRecording(body.recording_id) });
+    return;
+  }
+
   if (req.method === "POST" && url.pathname === "/api/join") {
     const body = await readBody(req);
     const roomId = String(body.roomId || "").trim().slice(0, 80);
