@@ -7,7 +7,6 @@ const PORT = Number(process.env.PORT || 3002);
 const ROOT_DIR = __dirname;
 const DIST_DIR = path.join(ROOT_DIR, "dist");
 const PUBLIC_DIR = path.join(ROOT_DIR, "public");
-const STATIC_DIR = fs.existsSync(DIST_DIR) ? DIST_DIR : PUBLIC_DIR;
 const rooms = new Map();
 
 const contentTypes = {
@@ -74,6 +73,19 @@ function cleanOldRooms() {
 }
 
 setInterval(cleanOldRooms, 60_000).unref();
+
+function getStaticDir() {
+  const distIndex = path.join(DIST_DIR, "index.html");
+  const publicIndex = path.join(PUBLIC_DIR, "index.html");
+
+  if (!fs.existsSync(distIndex)) {
+    return PUBLIC_DIR;
+  }
+
+  const distTime = fs.statSync(distIndex).mtimeMs;
+  const publicTime = fs.statSync(publicIndex).mtimeMs;
+  return distTime >= publicTime ? DIST_DIR : PUBLIC_DIR;
+}
 
 async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/join") {
@@ -180,10 +192,11 @@ async function handleApi(req, res, url) {
 }
 
 function serveStatic(req, res, url) {
+  const staticDir = getStaticDir();
   const requestedPath = url.pathname === "/" ? "/index.html" : url.pathname;
-  const filePath = path.normalize(path.join(STATIC_DIR, requestedPath));
+  const filePath = path.normalize(path.join(staticDir, requestedPath));
 
-  if (!filePath.startsWith(STATIC_DIR)) {
+  if (!filePath.startsWith(staticDir)) {
     res.writeHead(403);
     res.end("Forbidden");
     return;
@@ -191,7 +204,7 @@ function serveStatic(req, res, url) {
 
   fs.readFile(filePath, (error, data) => {
     if (error) {
-      fs.readFile(path.join(STATIC_DIR, "index.html"), (indexError, indexData) => {
+      fs.readFile(path.join(staticDir, "index.html"), (indexError, indexData) => {
         if (indexError) {
           res.writeHead(404);
           res.end("Not found");
