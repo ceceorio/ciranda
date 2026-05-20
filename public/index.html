@@ -96,6 +96,26 @@
               <ul id="participantList"></ul>
             </section>
 
+            <section class="panel caption-health">
+              <div class="panel-title">
+                <h3>Legendas</h3>
+              </div>
+              <dl>
+                <div>
+                  <dt>Captacao</dt>
+                  <dd id="captionState">Desligada</dd>
+                </div>
+                <div>
+                  <dt>Traducao</dt>
+                  <dd id="translationState">Sem traducao</dd>
+                </div>
+                <div>
+                  <dt>Latencia</dt>
+                  <dd id="latencyState">--</dd>
+                </div>
+              </dl>
+            </section>
+
             <section class="panel chat-panel">
               <h3>Chat da roda</h3>
               <div class="chat-messages" id="chatMessages"></div>
@@ -112,6 +132,7 @@
           <button type="button" id="cameraButton" class="control" aria-pressed="false">Camera</button>
           <button type="button" id="screenButton" class="control" aria-pressed="false">Tela</button>
           <button type="button" id="captionButton" class="control" aria-pressed="false">Legendas</button>
+          <button type="button" id="testCaptionButton" class="control">Teste legenda</button>
           <label class="translation-control">
             <span>Traducao</span>
             <select id="translationSelect">
