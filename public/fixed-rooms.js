@@ -1,9 +1,19 @@
+const homeView = document.querySelector("#homeView");
 const fixedRoomsView = document.querySelector("#fixedRoomsView");
 const entryView = document.querySelector("#entryView");
 const roomView = document.querySelector("#roomView");
+const homeRoomList = document.querySelector("#homeRoomList");
 const fixedRoomList = document.querySelector("#fixedRoomList");
 const fixedRoomForm = document.querySelector("#fixedRoomForm");
 const refreshRoomsButton = document.querySelector("#refreshRoomsButton");
+const homeRefreshRoomsButton = document.querySelector("#homeRefreshRoomsButton");
+const openFixedRoomsButton = document.querySelector("#openFixedRoomsButton");
+const createFixedRoomButton = document.querySelector("#createFixedRoomButton");
+const quickMeetingButton = document.querySelector("#quickMeetingButton");
+const openQuickRoomButton = document.querySelector("#openQuickRoomButton");
+const joinCodeForm = document.querySelector("#joinCodeForm");
+const joinCodeInput = document.querySelector("#joinCodeInput");
+const backHomeButton = document.querySelector("#backHomeButton");
 const fixedRoomDetail = document.querySelector("#fixedRoomDetail");
 const fixedRoomDetailName = document.querySelector("#fixedRoomDetailName");
 const fixedRoomDetailSlug = document.querySelector("#fixedRoomDetailSlug");
@@ -27,6 +37,7 @@ let fixedRooms = [];
 let currentRoom = null;
 
 function show(view) {
+  homeView?.classList.toggle("hidden", view !== "home");
   fixedRoomsView?.classList.toggle("hidden", view !== "fixed");
   entryView?.classList.toggle("hidden", view !== "entry");
   roomView?.classList.toggle("hidden", view !== "room");
@@ -58,6 +69,42 @@ function roomUrl(slug) {
   return `/rooms/${encodeURIComponent(slug)}`;
 }
 
+function technicalRoomFromCode(value) {
+  const raw = String(value || "").trim();
+
+  if (!raw) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(raw);
+    return parsed.searchParams.get("room") || parsed.pathname.split("/").filter(Boolean).pop() || raw;
+  } catch {
+    return raw.replace(/^\/+|\/+$/g, "");
+  }
+}
+
+function openEntryWithRoom(id) {
+  roomName.value = id;
+  participantName.value = participantName.value || "";
+  show("entry");
+}
+
+function startQuickMeeting() {
+  const id = `ciranda-${Date.now().toString(36)}`;
+  openEntryWithRoom(id);
+}
+
+function openFixedRooms() {
+  show("fixed");
+  window.history.replaceState({}, "", "/salas");
+}
+
+function openHome() {
+  show("home");
+  window.history.replaceState({}, "", "/");
+}
+
 function setTab(name) {
   for (const button of fixedTabs) {
     const active = button.dataset.fixedTab === name;
@@ -69,29 +116,44 @@ function setTab(name) {
   }
 }
 
+function roomCard(room, variant = "fixed") {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = variant === "home" ? "home-room-item" : "fixed-room-item";
+  item.dataset.slug = room.slug;
+
+  const title = document.createElement("strong");
+  title.textContent = room.name;
+
+  const meta = document.createElement("span");
+  meta.textContent = `${room.client_name || "Sem cliente"} · ${room.sessions_count || 0} sessoes`;
+
+  item.append(title, meta);
+  item.addEventListener("click", () => selectRoom(room.slug));
+  return item;
+}
+
 function renderRooms() {
   fixedRoomList.textContent = "";
 
   if (!fixedRooms.length) {
     empty(fixedRoomList, "Nenhuma sala fixa criada ainda.");
+  } else {
+    for (const room of fixedRooms) {
+      fixedRoomList.append(roomCard(room));
+    }
+  }
+
+  if (!homeRoomList) return;
+  homeRoomList.textContent = "";
+
+  if (!fixedRooms.length) {
+    empty(homeRoomList, "Crie sua primeira sala fixa por projeto, cliente ou territorio.");
     return;
   }
 
-  for (const room of fixedRooms) {
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "fixed-room-item";
-    item.dataset.slug = room.slug;
-
-    const title = document.createElement("strong");
-    title.textContent = room.name;
-
-    const meta = document.createElement("span");
-    meta.textContent = `${room.client_name || "Sem cliente"} · ${room.sessions_count || 0} sessoes`;
-
-    item.append(title, meta);
-    item.addEventListener("click", () => selectRoom(room.slug));
-    fixedRoomList.append(item);
+  for (const room of fixedRooms.slice(0, 4)) {
+    homeRoomList.append(roomCard(room, "home"));
   }
 }
 
@@ -160,6 +222,7 @@ async function selectRoom(slug) {
   const data = await api(`/api/fixed-rooms/${encodeURIComponent(slug)}`);
   currentRoom = data.room;
 
+  show("fixed");
   fixedRoomDetail.classList.remove("hidden");
   fixedRoomDetailName.textContent = currentRoom.name;
   fixedRoomDetailSlug.textContent = roomUrl(currentRoom.slug);
@@ -170,7 +233,7 @@ async function selectRoom(slug) {
   settingsDriveFolderId.value = currentRoom.drive_folder_id || "";
   driveStatusText.textContent = data.drive?.message || "Google Drive ainda nao configurado.";
 
-  document.querySelectorAll(".fixed-room-item").forEach((item) => {
+  document.querySelectorAll(".fixed-room-item, .home-room-item").forEach((item) => {
     item.classList.toggle("active", item.dataset.slug === slug);
   });
 
@@ -245,34 +308,60 @@ async function enterRoom() {
   joinForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 }
 
+async function submitJoinCode(event) {
+  event.preventDefault();
+  const code = technicalRoomFromCode(joinCodeInput.value);
+
+  if (!code) {
+    joinCodeInput.focus();
+    return;
+  }
+
+  openEntryWithRoom(code);
+}
+
 async function boot() {
   if (new URLSearchParams(window.location.search).has("room")) {
     show("entry");
     return;
   }
 
-  show("fixed");
   await loadRooms();
-
   const [, first, slug] = window.location.pathname.split("/");
+
   if (first === "rooms" && slug) {
     await selectRoom(decodeURIComponent(slug));
+    return;
   }
+
+  if (first === "salas") {
+    show("fixed");
+    return;
+  }
+
+  show("home");
 }
 
 fixedRoomForm?.addEventListener("submit", createRoom);
 document.querySelector("#fixedTabSettings")?.addEventListener("submit", saveSettings);
 document.querySelector("#fixedTabDrive")?.addEventListener("submit", saveSettings);
 refreshRoomsButton?.addEventListener("click", loadRooms);
-enterFixedRoomButton?.addEventListener("click", enterRoom);
-backToRoomsButton?.addEventListener("click", () => {
-  window.history.replaceState({}, "", "/");
-  show("fixed");
+homeRefreshRoomsButton?.addEventListener("click", loadRooms);
+openFixedRoomsButton?.addEventListener("click", openFixedRooms);
+createFixedRoomButton?.addEventListener("click", () => {
+  openFixedRooms();
+  document.querySelector("#fixedRoomName")?.focus();
 });
+quickMeetingButton?.addEventListener("click", startQuickMeeting);
+openQuickRoomButton?.addEventListener("click", startQuickMeeting);
+joinCodeForm?.addEventListener("submit", submitJoinCode);
+backHomeButton?.addEventListener("click", openHome);
+enterFixedRoomButton?.addEventListener("click", enterRoom);
+backToRoomsButton?.addEventListener("click", openHome);
 fixedTabs.forEach((button) => button.addEventListener("click", () => setTab(button.dataset.fixedTab)));
 
 boot().catch((error) => {
   console.error("[ciranda:fixed-rooms]", error);
-  show("fixed");
-  empty(fixedRoomList, "Nao foi possivel carregar as salas fixas agora.");
+  show("home");
+  empty(homeRoomList || fixedRoomList, "Nao foi possivel carregar as salas agora.");
 });
