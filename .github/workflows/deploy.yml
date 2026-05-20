@@ -1,0 +1,50 @@
+name: Deploy Ciranda
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ciranda-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Deploy on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.CIRANDA_SSH_HOST }}
+          username: ${{ secrets.CIRANDA_SSH_USER }}
+          key: ${{ secrets.CIRANDA_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            cd /var/www/ciranda
+            git fetch origin
+            git reset --hard origin/main
+            rm -rf dist
+            npm install
+            npm run build
+            PORT=3002 pm2 restart ciranda --update-env
+            pm2 save
