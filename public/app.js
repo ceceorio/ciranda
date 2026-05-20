@@ -12,6 +12,8 @@ const remoteEmpty = document.querySelector("#remoteEmpty");
 const localNameTag = document.querySelector("#localNameTag");
 const participantCount = document.querySelector("#participantCount");
 const participantList = document.querySelector("#participantList");
+const roomLink = document.querySelector("#roomLink");
+const copyLinkButton = document.querySelector("#copyLinkButton");
 const chatMessages = document.querySelector("#chatMessages");
 const chatForm = document.querySelector("#chatForm");
 const chatInput = document.querySelector("#chatInput");
@@ -64,6 +66,39 @@ if (initialRoom) {
 function setStatus(text, state = "waiting") {
   connectionStatus.dataset.state = state;
   connectionStatus.lastChild.textContent = text;
+}
+
+function getRoomUrl(id = roomId) {
+  const url = new URL(window.location.href);
+  url.pathname = "/";
+  url.searchParams.set("room", id);
+  return url.toString();
+}
+
+function updateRoomLink() {
+  if (!roomId) {
+    roomLink.value = "";
+    return;
+  }
+
+  const shareUrl = getRoomUrl();
+  roomLink.value = shareUrl;
+  window.history.replaceState({}, "", shareUrl);
+}
+
+async function copyRoomLink() {
+  if (!roomLink.value) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(roomLink.value);
+    setStatus("Link da sala copiado.", "ready");
+  } catch {
+    roomLink.select();
+    document.execCommand("copy");
+    setStatus("Link da sala copiado.", "ready");
+  }
 }
 
 async function api(path, options = {}) {
@@ -334,6 +369,7 @@ async function enterRoom(event) {
   roomView.classList.remove("hidden");
   activeRoomName.textContent = roomId;
   localNameTag.textContent = localName;
+  updateRoomLink();
   resetChat();
   setStatus("Pedindo permissao de audio e video", "waiting");
 
@@ -429,17 +465,27 @@ function createSpeechRecognition() {
 
   speech.onresult = (event) => {
     let text = "";
+    let hasFinal = false;
+
     for (let index = event.resultIndex; index < event.results.length; index += 1) {
       text += event.results[index][0].transcript;
+      hasFinal = hasFinal || event.results[index].isFinal;
     }
 
     text = text.trim();
     if (text) {
+      showCaption(`Voce: ${text}`);
+    }
+
+    if (text && hasFinal) {
       sendSignal({ caption: { name: localName, text } }).catch(console.error);
     }
   };
 
-  speech.onerror = () => setStatus("As legendas nao conseguiram ouvir o microfone.", "error");
+  speech.onerror = (event) => {
+    const reason = event.error === "not-allowed" ? "Permissao de microfone bloqueada." : "As legendas nao conseguiram ouvir o microfone.";
+    setStatus(reason, "error");
+  };
   speech.onend = () => {
     if (captionButton.getAttribute("aria-pressed") === "true") {
       speech.start();
@@ -466,7 +512,7 @@ function toggleCaptions() {
   try {
     recognition.start();
     captionButton.setAttribute("aria-pressed", "true");
-    setStatus("Legendas ligadas.", "ready");
+    setStatus("Legendas ligadas. Fale para testar.", "ready");
   } catch (error) {
     console.error(error);
   }
@@ -519,6 +565,7 @@ async function leaveRoom() {
   voiceTranslationEnabled = false;
   peerId = "";
   lastMessageId = "";
+  roomLink.value = "";
   resetChat();
   renderParticipants([]);
   roomView.classList.add("hidden");
@@ -527,6 +574,7 @@ async function leaveRoom() {
 
 resetChat();
 joinForm.addEventListener("submit", enterRoom);
+copyLinkButton.addEventListener("click", copyRoomLink);
 micButton.addEventListener("click", () => toggleTrack("audio", micButton));
 cameraButton.addEventListener("click", () => toggleTrack("video", cameraButton));
 screenButton.addEventListener("click", toggleScreenShare);
