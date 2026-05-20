@@ -5,10 +5,124 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Ciranda | Fermento Cultural</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/fixed-rooms.css" />
   </head>
   <body>
     <main class="shell">
-      <section class="entry" id="entryView">
+      <section class="fixed-rooms" id="fixedRoomsView">
+        <header class="module-header">
+          <div class="room-title">
+            <div class="brand-mark small" aria-hidden="true">C</div>
+            <div>
+              <p class="eyebrow">Plataforma Fermento</p>
+              <h1>Ciranda</h1>
+            </div>
+          </div>
+          <p>Salas fixas para encontros, historico, gravacoes e arquivos da Fermento Cultural.</p>
+        </header>
+
+        <div class="fixed-layout">
+          <section class="panel fixed-list-panel">
+            <div class="panel-title">
+              <h3>Salas fixas</h3>
+              <button type="button" id="refreshRoomsButton">Atualizar</button>
+            </div>
+            <div class="fixed-room-list" id="fixedRoomList"></div>
+          </section>
+
+          <section class="panel fixed-form-panel">
+            <div class="panel-title">
+              <h3>Nova sala</h3>
+            </div>
+            <form class="fixed-room-form" id="fixedRoomForm">
+              <label>
+                Nome da sala
+                <input id="fixedRoomName" maxlength="120" placeholder="Ex: Conselho de Cultura" required />
+              </label>
+              <label>
+                Slug do link
+                <input id="fixedRoomSlug" maxlength="80" placeholder="Ex: conselho-cultura" />
+              </label>
+              <label>
+                Cliente ou territorio
+                <input id="fixedRoomClient" maxlength="160" placeholder="Ex: Fermento Cultural" />
+              </label>
+              <label>
+                Projeto vinculado
+                <input id="fixedRoomProject" maxlength="160" placeholder="Ex: Plataforma Fermento" />
+              </label>
+              <label>
+                Descricao
+                <input id="fixedRoomDescription" maxlength="600" placeholder="Objetivo da sala" />
+              </label>
+              <button type="submit">Criar sala fixa</button>
+            </form>
+          </section>
+
+          <section class="panel fixed-detail-panel hidden" id="fixedRoomDetail">
+            <div class="panel-title">
+              <h3 id="fixedRoomDetailName">Sala</h3>
+              <span id="fixedRoomDetailSlug"></span>
+            </div>
+
+            <div class="fixed-tabs" role="tablist">
+              <button type="button" data-fixed-tab="enter">Entrar</button>
+              <button type="button" data-fixed-tab="settings">Configuracoes</button>
+              <button type="button" data-fixed-tab="history">Historico</button>
+              <button type="button" data-fixed-tab="files">Arquivos</button>
+              <button type="button" data-fixed-tab="drive">Google Drive</button>
+            </div>
+
+            <div class="fixed-tab-panel" id="fixedTabEnter">
+              <p id="fixedRoomDetailDescription"></p>
+              <label>
+                Seu nome
+                <input id="fixedParticipantName" maxlength="60" placeholder="Ex: Cicero" />
+              </label>
+              <button type="button" id="enterFixedRoomButton">Entrar na sala</button>
+            </div>
+
+            <form class="fixed-tab-panel hidden" id="fixedTabSettings">
+              <label>
+                Nome
+                <input id="settingsRoomName" maxlength="120" />
+              </label>
+              <label>
+                Descricao
+                <input id="settingsRoomDescription" maxlength="600" />
+              </label>
+              <label>
+                Politica de gravacao
+                <select id="settingsRecordingPolicy">
+                  <option value="manual">Manual</option>
+                  <option value="always_ask">Perguntar ao entrar</option>
+                  <option value="disabled">Desativada</option>
+                </select>
+              </label>
+              <button type="submit">Salvar configuracoes</button>
+            </form>
+
+            <div class="fixed-tab-panel hidden" id="fixedTabHistory">
+              <div class="session-list" id="fixedSessionList"></div>
+            </div>
+
+            <div class="fixed-tab-panel hidden" id="fixedTabFiles">
+              <div class="file-list" id="fixedFileList"></div>
+            </div>
+
+            <form class="fixed-tab-panel hidden" id="fixedTabDrive">
+              <label>
+                ID da pasta do Google Drive
+                <input id="settingsDriveFolderId" maxlength="220" placeholder="Cole o drive_folder_id quando existir" />
+              </label>
+              <p id="driveStatusText"></p>
+              <button type="submit">Salvar pasta</button>
+            </form>
+          </section>
+        </div>
+      </section>
+
+      <section class="entry hidden" id="entryView">
         <div class="brand-card">
           <div class="brand-mark" aria-hidden="true">C</div>
           <p class="eyebrow">Plataforma Fermento</p>
@@ -22,6 +136,7 @@
             <p class="eyebrow">Entrar na roda</p>
             <h2>Prepare sua sala</h2>
           </div>
+          <button type="button" id="backToRoomsButton">Voltar para salas fixas</button>
 
           <label>
             Nome do participante
@@ -148,5 +263,6 @@
     </main>
 
     <script type="module" src="/app.js"></script>
+    <script type="module" src="/fixed-rooms.js"></script>
   </body>
 </html>
