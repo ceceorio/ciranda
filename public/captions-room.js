@@ -11,6 +11,37 @@ const localTile = document.querySelector(".video-tile.local");
 const captionButton = document.querySelector("#captionButton");
 const testCaptionButton = document.querySelector("#testCaptionButton");
 
+window.CIRANDA_CAPTION_SOURCE_LANGUAGE = window.CIRANDA_CAPTION_SOURCE_LANGUAGE || "pt-BR";
+
+function shortLanguage(language) {
+  return String(language || "pt-BR").split("-")[0];
+}
+
+function patchSpeechAndTranslationProviders() {
+  const OriginalSpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (OriginalSpeechRecognition && !window.CIRANDA_SPEECH_PATCHED) {
+    class CirandaSpeechRecognition extends OriginalSpeechRecognition {
+      start() {
+        this.lang = window.CIRANDA_CAPTION_SOURCE_LANGUAGE || "pt-BR";
+        return super.start();
+      }
+    }
+
+    window.SpeechRecognition = CirandaSpeechRecognition;
+    window.webkitSpeechRecognition = CirandaSpeechRecognition;
+    window.CIRANDA_SPEECH_PATCHED = true;
+  }
+
+  if (window.Translator?.create && !window.CIRANDA_TRANSLATOR_PATCHED) {
+    const originalCreate = window.Translator.create.bind(window.Translator);
+    window.Translator.create = (options = {}) => originalCreate({
+      ...options,
+      sourceLanguage: shortLanguage(window.CIRANDA_CAPTION_SOURCE_LANGUAGE),
+    });
+    window.CIRANDA_TRANSLATOR_PATCHED = true;
+  }
+}
+
 function detectCaptionProvider() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const hasSpeech = Boolean(SpeechRecognition);
@@ -26,7 +57,7 @@ function detectCaptionProvider() {
   if (!hasTranslator) {
     return {
       title: "Legendas ativas, traducao experimental",
-      text: "O Chrome pode captar fala em portugues. A traducao automatica depende da API Translator do navegador ou de um provedor futuro no servidor.",
+      text: "O Chrome pode captar fala. A traducao automatica depende da API Translator do navegador ou de um provedor futuro no servidor.",
     };
   }
 
@@ -82,6 +113,7 @@ function buildCaptionInterface() {
     <option value="en-US">Ingles</option>
     <option value="es-ES">Espanhol</option>
   `;
+  sourceSelect.value = window.CIRANDA_CAPTION_SOURCE_LANGUAGE;
   sourceLabel.append(sourceSelect);
 
   const targetLabel = document.createElement("label");
@@ -129,7 +161,7 @@ function buildCaptionInterface() {
 
   sourceSelect.addEventListener("change", () => {
     window.CIRANDA_CAPTION_SOURCE_LANGUAGE = sourceSelect.value;
-    appendCaptionLog(`Idioma falado definido para ${sourceSelect.selectedOptions[0].textContent}.`, "Sistema");
+    appendCaptionLog(`Idioma falado definido para ${sourceSelect.selectedOptions[0].textContent}. Ligue as legendas novamente se elas ja estiverem ativas.`, "Sistema");
   });
 
   document.querySelector("#clearCaptionLogButton")?.addEventListener("click", () => {
@@ -183,6 +215,7 @@ testCaptionButton?.addEventListener("click", () => {
   appendCaptionLog("Teste manual disparado para conferir posicionamento, traducao e latencia visual.", "Sistema");
 });
 
+patchSpeechAndTranslationProviders();
 buildCaptionInterface();
 buildLocalCaptionBubble();
 watchCaptionBubble();
