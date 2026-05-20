@@ -66,11 +66,13 @@
             </article>
 
             <article class="video-tile remote">
-              <div class="empty-video">
+              <video id="remoteVideo" autoplay playsinline></video>
+              <div class="empty-video" id="remoteEmpty">
                 <div class="avatar">+</div>
-                <strong>Conexao WebRTC preparada</strong>
-                <p>Esta area recebera participantes por conexao direta, feita no proprio Ciranda.</p>
+                <strong>Esperando a roda crescer</strong>
+                <p>Quando outra pessoa entrar na mesma sala, o video aparece aqui.</p>
               </div>
+              <p class="caption-bubble hidden" id="remoteCaption"></p>
               <span class="tile-name">Participante remoto</span>
             </article>
           </section>
@@ -84,9 +86,13 @@
               <ul id="participantList"></ul>
             </section>
 
-            <section class="panel provider-panel">
-              <h3>Motor de video</h3>
-              <p id="providerStatus">Estrutura pronta para evoluir com WebRTC direto.</p>
+            <section class="panel chat-panel">
+              <h3>Chat da roda</h3>
+              <div class="chat-messages" id="chatMessages"></div>
+              <form class="chat-form" id="chatForm">
+                <input id="chatInput" maxlength="280" placeholder="Mensagem para a roda" autocomplete="off" />
+                <button type="submit">Enviar</button>
+              </form>
             </section>
           </aside>
         </div>
@@ -95,6 +101,16 @@
           <button type="button" id="micButton" class="control" aria-pressed="false">Microfone</button>
           <button type="button" id="cameraButton" class="control" aria-pressed="false">Camera</button>
           <button type="button" id="screenButton" class="control" aria-pressed="false">Tela</button>
+          <button type="button" id="captionButton" class="control" aria-pressed="false">Legendas</button>
+          <label class="translation-control">
+            <span>Traducao</span>
+            <select id="translationSelect">
+              <option value="off">Sem traducao</option>
+              <option value="en">Ingles</option>
+              <option value="es">Espanhol</option>
+            </select>
+          </label>
+          <button type="button" id="voiceTranslationButton" class="control" aria-pressed="false">Audio traducao</button>
           <button type="button" id="leaveButton" class="control danger">Sair</button>
         </footer>
       </section>
