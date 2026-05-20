@@ -17,10 +17,14 @@ Esta primeira entrega cria uma base funcional e independente com:
 - campo para nome da sala;
 - estrutura visual de sala de video;
 - captura local de audio/video via navegador;
-- controles iniciais de microfone, camera, compartilhamento de tela e sair;
+- conexao WebRTC direta entre duas pessoas na mesma sala;
+- sinalizacao simples no proprio servidor Node do Ciranda;
+- participantes conectados;
+- chat de texto dentro da sala;
+- controles de microfone, camera, compartilhamento de tela, legendas, traducao, audio de traducao e sair;
 - rota tecnica `/health`;
 - porta configuravel por variavel de ambiente, com padrao `3002`;
-- estrutura preparada para evoluir com WebRTC direto, sem SDK externo nesta primeira entrega.
+- estrutura WebRTC direta, sem SDK externo nesta primeira entrega.
 
 ## Requisitos
 
@@ -91,7 +95,17 @@ Para reiniciar depois de uma atualizacao:
 ```bash
 npm install
 npm run build
-pm2 restart ciranda
+PORT=3002 pm2 restart ciranda --update-env
+```
+
+Se a VPS estiver com aviso de branches divergentes por causa de publicacao anterior, use dentro de `/var/www/ciranda`:
+
+```bash
+git fetch origin
+git reset --hard origin/main
+npm install
+npm run build
+PORT=3002 pm2 restart ciranda --update-env
 ```
 
 ## Nginx
@@ -121,19 +135,21 @@ Use `.env.example` como referencia. Nao commitar `.env` real.
 
 ```text
 PORT=3002
-VIDEO_PROVIDER=direct-webrtc
 PUBLIC_STUN_URL=stun:stun.l.google.com:19302
 ```
 
-## Preparacao para WebRTC direto
+## WebRTC direto
 
-A estrutura de video esta isolada em:
+O Ciranda usa uma sinalizacao simples no proprio `server.js`:
 
-```text
-public/video-provider.js
-```
+- `POST /api/join`
+- `POST /api/signal`
+- `GET /api/messages`
+- `POST /api/leave`
 
-Hoje ela usa um provedor `direct-webrtc` inicial, sem token, SDK externo ou segredo. A proxima etapa e implementar a sinalizacao e a negociacao WebRTC direta dentro do proprio Ciranda.
+Essa primeira versao foi pensada para validar a chamada direta entre duas pessoas, mantendo o projeto sem SDK externo, sem token e sem segredo.
+
+Observacao importante: esta versao usa STUN publico para ajudar dois navegadores a se encontrarem. Em algumas redes, principalmente 4G/5G corporativo ou roteadores mais fechados, uma chamada WebRTC direta pode precisar de TURN. Isso nao exige LiveKit, mas exige um servidor TURN proprio ou contratado.
 
 ## Regras do projeto
 
