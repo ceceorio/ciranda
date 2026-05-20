@@ -276,7 +276,7 @@ button {
 .caption-bubble {
   position: absolute;
   left: 50%;
-  bottom: 56px;
+  bottom: 64px;
   width: min(88%, 620px);
   transform: translateX(-50%);
   margin: 0;
@@ -289,6 +289,7 @@ button {
   font-weight: 800;
   line-height: 1.35;
   backdrop-filter: blur(14px);
+  pointer-events: none;
 }
 
 .avatar {
@@ -353,6 +354,34 @@ button {
 .share-row button {
   min-height: 44px;
   padding: 0 14px;
+}
+
+.caption-health dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.caption-health div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid rgba(255, 204, 0, 0.12);
+  padding-top: 9px;
+}
+
+.caption-health dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.caption-health dd {
+  margin: 0;
+  color: var(--yellow);
+  font-size: 12px;
+  font-weight: 900;
+  text-align: right;
 }
 
 .chat-panel p {
@@ -486,5 +515,11 @@ button {
   .room-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .caption-bubble {
+    bottom: 62px;
+    width: min(92%, 520px);
+    font-size: 14px;
   }
 }
