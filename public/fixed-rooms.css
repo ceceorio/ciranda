@@ -107,7 +107,7 @@
 .fixed-list-panel button {
   border: 1px solid rgba(255, 204, 0, 0.58);
   border-radius: 999px;
-  background: var(--gold);
+  background: var(--yellow);
   color: #050505;
   cursor: pointer;
   font: inherit;
@@ -117,7 +117,7 @@
 
 .fixed-list-panel .panel-title button {
   background: transparent;
-  color: var(--gold);
+  color: var(--yellow);
   padding: 8px 12px;
 }
 
@@ -138,7 +138,7 @@
 .fixed-tabs button[aria-pressed="true"] {
   background: rgba(255, 204, 0, 0.14);
   border-color: rgba(255, 204, 0, 0.58);
-  color: var(--gold);
+  color: var(--yellow);
 }
 
 .fixed-detail-panel {
