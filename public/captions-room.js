@@ -1,13 +1,13 @@
 const captionStylesheet = document.createElement("link");
 captionStylesheet.rel = "stylesheet";
-captionStylesheet.href = "/captions-room.css?v=20260520-1";
+captionStylesheet.href = "/captions-room.css?v=20260520-2";
 document.head.append(captionStylesheet);
 
 const captionPanel = document.querySelector(".caption-health");
 const translationSelect = document.querySelector("#translationSelect");
 const translationControl = document.querySelector(".translation-control");
 const remoteCaption = document.querySelector("#remoteCaption");
-const localTile = document.querySelector(".video-tile.local");
+const videoStage = document.querySelector(".video-stage");
 const captionButton = document.querySelector("#captionButton");
 const testCaptionButton = document.querySelector("#testCaptionButton");
 
@@ -15,6 +15,17 @@ window.CIRANDA_CAPTION_SOURCE_LANGUAGE = window.CIRANDA_CAPTION_SOURCE_LANGUAGE 
 
 function shortLanguage(language) {
   return String(language || "pt-BR").split("-")[0];
+}
+
+function cleanCaptionText(text) {
+  return String(text || "")
+    .replace(/^Voce traduzido:\s*/i, "Voce: ")
+    .replace(/^Voce:\s*/i, "Voce: ")
+    .trim();
+}
+
+function captionKind(text) {
+  return cleanCaptionText(text).startsWith("Voce:") ? "Minha legenda" : "Legenda remota";
 }
 
 function patchSpeechAndTranslationProviders() {
@@ -54,26 +65,27 @@ function detectCaptionProvider() {
   if (!hasSpeech) {
     return {
       title: "Legendas indisponiveis",
-      text: "Este navegador nao expõe reconhecimento de fala para a pagina. Teste no Chrome atualizado.",
+      text: "Este navegador nao expoe reconhecimento de fala para a pagina. Teste no Chrome atualizado.",
     };
   }
 
   if (!hasTranslator) {
     return {
       title: "Legendas ativas, traducao experimental",
-      text: "O Chrome pode captar fala. A traducao automatica depende da API Translator do navegador ou de um provedor futuro no servidor.",
+      text: "O Chrome pode captar fala. A traducao automatica precisa da API Translator do navegador ou de um provedor futuro no servidor.",
     };
   }
 
   return {
-    title: "Legendas e traducao disponiveis",
-    text: "Este navegador expõe reconhecimento de fala e traducao local experimental.",
+    title: "Legendas e traducao do navegador",
+    text: "O navegador informa suporte experimental. Se a traducao falhar, sera necessario plugar um provedor no backend.",
   };
 }
 
 function appendCaptionLog(text, kind = "Legenda") {
   const list = document.querySelector("#captionLogList");
-  if (!list || !text.trim()) return;
+  const value = cleanCaptionText(text);
+  if (!list || !value) return;
 
   const empty = list.querySelector(".fixed-empty");
   empty?.remove();
@@ -85,14 +97,43 @@ function appendCaptionLog(text, kind = "Legenda") {
   label.textContent = `${kind} · ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
 
   const content = document.createElement("p");
-  content.textContent = text.trim();
+  content.textContent = value;
 
   item.append(label, content);
   list.prepend(item);
 
-  while (list.children.length > 12) {
+  while (list.children.length > 10) {
     list.lastElementChild.remove();
   }
+}
+
+function buildCaptionDock() {
+  if (!videoStage || document.querySelector("#roomCaptionDock")) return;
+
+  const dock = document.createElement("div");
+  dock.id = "roomCaptionDock";
+  dock.className = "room-caption-dock";
+  dock.innerHTML = `
+    <article class="room-caption-card hidden" id="roomCaptionCard">
+      <span id="roomCaptionSpeaker">Legenda</span>
+      <p id="roomCaptionText"></p>
+    </article>
+  `;
+  videoStage.append(dock);
+}
+
+function showDockCaption(text, kind = "Legenda") {
+  const card = document.querySelector("#roomCaptionCard");
+  const label = document.querySelector("#roomCaptionSpeaker");
+  const content = document.querySelector("#roomCaptionText");
+  const value = cleanCaptionText(text);
+  if (!card || !label || !content || !value) return;
+
+  label.textContent = kind;
+  content.textContent = value.replace(/^Voce:\s*/i, "");
+  card.classList.remove("hidden");
+  clearTimeout(showDockCaption.timer);
+  showDockCaption.timer = setTimeout(() => card.classList.add("hidden"), 6500);
 }
 
 function buildCaptionInterface() {
@@ -178,30 +219,17 @@ function buildCaptionInterface() {
   });
 }
 
-function buildLocalCaptionBubble() {
-  if (!localTile || document.querySelector("#localCaption")) return;
-  const localCaption = document.createElement("p");
-  localCaption.id = "localCaption";
-  localCaption.className = "caption-bubble local-caption hidden";
-  localTile.append(localCaption);
-}
-
 function watchCaptionBubble() {
   if (!remoteCaption) return;
   let lastText = "";
   const observer = new MutationObserver(() => {
-    const text = remoteCaption.textContent.trim();
-    if (!text || text === lastText || remoteCaption.classList.contains("hidden")) return;
+    const text = cleanCaptionText(remoteCaption.textContent);
+    if (!text || text === lastText) return;
     lastText = text;
-    appendCaptionLog(text, text.startsWith("Voce") ? "Minha legenda" : "Legenda remota");
-
-    const localCaption = document.querySelector("#localCaption");
-    if (localCaption && text.startsWith("Voce")) {
-      localCaption.textContent = text;
-      localCaption.classList.remove("hidden");
-      clearTimeout(watchCaptionBubble.timer);
-      watchCaptionBubble.timer = setTimeout(() => localCaption.classList.add("hidden"), 5200);
-    }
+    const kind = captionKind(text);
+    appendCaptionLog(text, kind);
+    showDockCaption(text, kind);
+    remoteCaption.classList.add("hidden");
   });
 
   observer.observe(remoteCaption, { characterData: true, childList: true, subtree: true, attributes: true });
@@ -220,6 +248,6 @@ testCaptionButton?.addEventListener("click", () => {
 });
 
 patchSpeechAndTranslationProviders();
+buildCaptionDock();
 buildCaptionInterface();
-buildLocalCaptionBubble();
 watchCaptionBubble();
