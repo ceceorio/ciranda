@@ -10,12 +10,15 @@ https://ciranda.fermentocultural.com.br
 
 ## Escopo desta versao
 
-Esta primeira entrega cria uma base funcional e independente com:
+Esta entrega cria uma base incremental para transformar a pagina inicial em uma aplicacao real de videoconferencia da Fermento Cultural, preservando o WebRTC direto que ja funcionava.
 
-- tela de entrada da sala;
-- campo para nome do participante;
-- campo para nome da sala;
-- estrutura visual de sala de video;
+Inclui:
+
+- lista de salas fixas persistidas;
+- criacao de sala fixa com slug permanente;
+- tela de configuracoes, historico, arquivos e Google Drive da sala;
+- criacao de uma sessao separada para cada reuniao;
+- entrada na sala a partir de uma sala fixa;
 - captura local de audio/video via navegador;
 - conexao WebRTC direta entre duas pessoas na mesma sala;
 - sinalizacao simples no proprio servidor Node do Ciranda;
@@ -24,7 +27,25 @@ Esta primeira entrega cria uma base funcional e independente com:
 - controles de microfone, camera, compartilhamento de tela, legendas, traducao, audio de traducao e sair;
 - rota tecnica `/health`;
 - porta configuravel por variavel de ambiente, com padrao `3002`;
-- estrutura WebRTC direta, sem SDK externo nesta primeira entrega.
+- servicos abstratos para gravacao, transcricao, traducao e Google Drive.
+
+## Stack atual
+
+Frontend:
+
+- HTML, CSS e JavaScript puro em `public/`;
+- sem framework frontend nesta etapa;
+- Web Speech API no navegador para legenda/traducao experimental;
+- WebRTC direto pelo navegador para audio/video.
+
+Backend:
+
+- Node.js com servidor HTTP nativo em `server.js`;
+- rotas JSON para salas fixas e sinalizacao WebRTC;
+- armazenamento local em JSON por enquanto;
+- migrations SQL documentadas para migracao futura para banco relacional.
+
+Nao ha autenticacao, banco externo, LiveKit, Egress ou Google Drive real configurados ainda.
 
 ## Requisitos
 
@@ -37,8 +58,6 @@ Esta primeira entrega cria uma base funcional e independente com:
 ```bash
 npm install
 ```
-
-> A versao atual nao possui dependencias externas, mas `npm install` deve ser mantido no fluxo da VPS para compatibilidade com proximas entregas.
 
 ## Build
 
@@ -79,34 +98,7 @@ Resposta esperada:
 }
 ```
 
-## Deploy automatico com GitHub Actions
-
-O repositorio possui o workflow `.github/workflows/deploy.yml`.
-
-Ele roda automaticamente quando houver push na branch `main` e tambem pode ser executado manualmente pela aba **Actions** do GitHub.
-
-Configure estes secrets no GitHub, em **Settings > Secrets and variables > Actions**:
-
-```text
-CIRANDA_SSH_HOST=IP ou host da VPS
-CIRANDA_SSH_USER=usuario SSH da VPS, por exemplo root
-CIRANDA_SSH_KEY=chave privada SSH autorizada na VPS
-```
-
-O workflow faz:
-
-```bash
-cd /var/www/ciranda
-git fetch origin
-git reset --hard origin/main
-rm -rf dist
-npm install
-npm run build
-PORT=3002 pm2 restart ciranda --update-env
-pm2 save
-```
-
-## Deploy manual com PM2
+## Deploy com PM2
 
 Exemplo:
 
@@ -123,17 +115,94 @@ Para reiniciar depois de uma atualizacao:
 npm install
 npm run build
 PORT=3002 pm2 restart ciranda --update-env
+pm2 save
 ```
 
-Se a VPS estiver com aviso de branches divergentes por causa de publicacao anterior, use dentro de `/var/www/ciranda`:
+## Deploy automatico com GitHub Actions
+
+O workflow `.github/workflows/deploy.yml` roda em push para `main` e tambem pode ser acionado manualmente pela aba **Actions** do GitHub.
+
+Secrets necessarios:
+
+```text
+CIRANDA_SSH_HOST
+CIRANDA_SSH_USER
+CIRANDA_SSH_KEY
+```
+
+O deploy automatico executa na VPS:
 
 ```bash
+cd /var/www/ciranda
 git fetch origin
 git reset --hard origin/main
+rm -rf dist
 npm install
 npm run build
 PORT=3002 pm2 restart ciranda --update-env
+pm2 save
 ```
+
+## Persistencia
+
+Nesta etapa, o Ciranda usa armazenamento local em JSON para viabilizar salas fixas sem exigir um banco externo imediatamente.
+
+Por padrao:
+
+```text
+data/ciranda-store.json
+```
+
+Esse arquivo nao deve ser commitado. Ele fica na VPS e guarda:
+
+- `video_rooms`
+- `video_room_members`
+- `video_sessions`
+- `video_session_participants`
+- `video_recordings`
+- `video_transcripts`
+- `video_captions`
+
+Variaveis opcionais:
+
+```text
+CIRANDA_DATA_DIR=/var/lib/ciranda
+CIRANDA_STORE_FILE=/var/lib/ciranda/ciranda-store.json
+```
+
+## Migrations
+
+O arquivo `migrations/001_ciranda_video_schema.sql` documenta a estrutura SQL segura para uma futura migracao para banco relacional.
+
+Ele cria, sem destruir dados:
+
+- `video_rooms`
+- `video_room_members`
+- `video_sessions`
+- `video_session_participants`
+- `video_recordings`
+- `video_transcripts`
+- `video_captions`
+
+## Salas fixas e sessoes
+
+A sala fixa e um registro permanente. Ela possui slug, nome, descricao, cliente/projeto, politica de gravacao e `drive_folder_id`.
+
+Cada vez que alguem entra numa sala fixa, o backend cria uma `video_session` com um `technical_room_id`. Esse ID tecnico e usado pelo WebRTC atual. Assim, a sala fixa nao depende da chamada continuar aberta.
+
+## Google Drive, gravacao e transcricao
+
+Os servicos existem como camada isolada:
+
+```text
+src/services/google-drive.js
+src/services/recording.js
+src/services/transcription.js
+```
+
+Se a sala nao tiver `drive_folder_id`, os arquivos ficam marcados como `local_pending_sync`.
+
+Gravacao e transcricao ainda estao em modo `pending_provider`, prontos para receber LiveKit Egress, Whisper, Google Speech-to-Text, LiveKit Agents ou outro provedor depois.
 
 ## Nginx
 
@@ -163,6 +232,7 @@ Use `.env.example` como referencia. Nao commitar `.env` real.
 ```text
 PORT=3002
 PUBLIC_STUN_URL=stun:stun.l.google.com:19302
+CIRANDA_DATA_DIR=/var/lib/ciranda
 ```
 
 ## WebRTC direto
@@ -174,9 +244,7 @@ O Ciranda usa uma sinalizacao simples no proprio `server.js`:
 - `GET /api/messages`
 - `POST /api/leave`
 
-Essa primeira versao foi pensada para validar a chamada direta entre duas pessoas, mantendo o projeto sem SDK externo, sem token e sem segredo.
-
-Observacao importante: esta versao usa STUN publico para ajudar dois navegadores a se encontrarem. Em algumas redes, principalmente 4G/5G corporativo ou roteadores mais fechados, uma chamada WebRTC direta pode precisar de TURN. Isso nao exige LiveKit, mas exige um servidor TURN proprio ou contratado.
+Essa versao foi pensada para validar a chamada direta entre duas pessoas, mantendo o projeto sem SDK externo, sem token e sem segredo.
 
 ## Regras do projeto
 
