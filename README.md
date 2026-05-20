@@ -79,7 +79,34 @@ Resposta esperada:
 }
 ```
 
-## Deploy com PM2
+## Deploy automatico com GitHub Actions
+
+O repositorio possui o workflow `.github/workflows/deploy.yml`.
+
+Ele roda automaticamente quando houver push na branch `main` e tambem pode ser executado manualmente pela aba **Actions** do GitHub.
+
+Configure estes secrets no GitHub, em **Settings > Secrets and variables > Actions**:
+
+```text
+CIRANDA_SSH_HOST=IP ou host da VPS
+CIRANDA_SSH_USER=usuario SSH da VPS, por exemplo root
+CIRANDA_SSH_KEY=chave privada SSH autorizada na VPS
+```
+
+O workflow faz:
+
+```bash
+cd /var/www/ciranda
+git fetch origin
+git reset --hard origin/main
+rm -rf dist
+npm install
+npm run build
+PORT=3002 pm2 restart ciranda --update-env
+pm2 save
+```
+
+## Deploy manual com PM2
 
 Exemplo:
 
