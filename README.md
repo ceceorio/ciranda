@@ -14,6 +14,11 @@ Esta entrega cria uma base incremental para transformar a pagina inicial em uma 
 
 Inclui:
 
+- pre-tela de boas-vindas ao Ciranda, com acoes parecidas com uma sala moderna de reunioes;
+- entrada por codigo ou link de sala;
+- reuniao rapida sem cadastro de sala fixa;
+- painel de salas recentes;
+- bloco de agenda preparado para integracao futura;
 - lista de salas fixas persistidas;
 - criacao de sala fixa com slug permanente;
 - tela de configuracoes, historico, arquivos e Google Drive da sala;
