@@ -13,6 +13,10 @@ build/
 .env.*
 !.env.example
 
+# Local runtime data
+data/*.json
+!data/.gitkeep
+
 # Logs
 logs/
 *.log
