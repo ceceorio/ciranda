@@ -9,16 +9,92 @@
   </head>
   <body>
     <main class="shell">
-      <section class="fixed-rooms" id="fixedRoomsView">
+      <section class="home-hub" id="homeView">
+        <header class="home-hero">
+          <div>
+            <div class="room-title">
+              <div class="brand-mark small" aria-hidden="true">C</div>
+              <div>
+                <p class="eyebrow">Plataforma Fermento</p>
+                <h1>Bem-vindo ao Ciranda</h1>
+              </div>
+            </div>
+            <p class="home-lead">Uma sala de encontro para escutas, reunioes, projetos e territorios. A Ciranda organiza conversas vivas com cuidado, memoria e tecnologia.</p>
+          </div>
+          <div class="home-actions" aria-label="Acoes principais">
+            <button type="button" id="quickMeetingButton">Nova reuniao rapida</button>
+            <button type="button" class="ghost" id="openFixedRoomsButton">Ver salas fixas</button>
+          </div>
+        </header>
+
+        <div class="home-grid">
+          <section class="panel home-card join-card">
+            <p class="eyebrow">Entrar agora</p>
+            <h2>Entre com codigo ou link</h2>
+            <form class="join-code-form" id="joinCodeForm">
+              <label>
+                Codigo da sala
+                <input id="joinCodeInput" maxlength="120" placeholder="Cole o codigo ou link da Ciranda" />
+              </label>
+              <button type="submit">Preparar entrada</button>
+            </form>
+          </section>
+
+          <section class="panel home-card mode-card">
+            <p class="eyebrow">Modalidades</p>
+            <div class="mode-list">
+              <button type="button" id="createFixedRoomButton">
+                <strong>Sala fixa</strong>
+                <span>Link permanente por projeto, cliente ou territorio.</span>
+              </button>
+              <button type="button" id="openQuickRoomButton">
+                <strong>Reuniao rapida</strong>
+                <span>Uma conversa pontual, sem cadastro de sala.</span>
+              </button>
+              <button type="button" class="disabled" aria-disabled="true">
+                <strong>Agendar encontro</strong>
+                <span>Preparado para calendario quando integrarmos a agenda.</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel home-card recent-card">
+            <div class="panel-title">
+              <h3>Salas recentes</h3>
+              <button type="button" id="homeRefreshRoomsButton">Atualizar</button>
+            </div>
+            <div class="home-room-list" id="homeRoomList"></div>
+          </section>
+
+          <section class="panel home-card calendar-card">
+            <p class="eyebrow">Agenda</p>
+            <h2>Proximos encontros</h2>
+            <div class="calendar-preview">
+              <article>
+                <strong>Hoje</strong>
+                <span>Nenhuma reuniao agendada na Ciranda.</span>
+              </article>
+              <article>
+                <strong>Depois</strong>
+                <span>Google Calendar e agenda da Plataforma Fermento entram em uma proxima etapa.</span>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="fixed-rooms hidden" id="fixedRoomsView">
         <header class="module-header">
           <div class="room-title">
             <div class="brand-mark small" aria-hidden="true">C</div>
             <div>
               <p class="eyebrow">Plataforma Fermento</p>
-              <h1>Ciranda</h1>
+              <h1>Salas da Ciranda</h1>
             </div>
           </div>
-          <p>Salas fixas para encontros, historico, gravacoes e arquivos da Fermento Cultural.</p>
+          <div class="module-actions">
+            <button type="button" id="backHomeButton">Inicio</button>
+          </div>
         </header>
 
         <div class="fixed-layout">
@@ -136,7 +212,7 @@
             <p class="eyebrow">Entrar na roda</p>
             <h2>Prepare sua sala</h2>
           </div>
-          <button type="button" id="backToRoomsButton">Voltar para salas fixas</button>
+          <button type="button" id="backToRoomsButton">Voltar para o inicio</button>
 
           <label>
             Nome do participante
