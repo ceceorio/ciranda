@@ -8,6 +8,7 @@ const leaveButton = document.querySelector("#leaveButton");
 const localVideo = document.querySelector("#localVideo");
 const videoStage = document.querySelector(".video-stage");
 const sidePanel = document.querySelector(".side-panel");
+const roomLayout = document.querySelector(".room-layout");
 
 const style = document.createElement("style");
 style.textContent = `
@@ -64,41 +65,105 @@ style.textContent = `
     color: #ffffff;
   }
 
-  #voiceTranslationButton:not(.is-on) {
-    color: var(--muted);
-  }
-
+  #voiceTranslationButton:not(.is-on),
   #testCaptionButton {
     color: var(--muted);
   }
 
-  .side-panel .panel {
-    transition: opacity 160ms ease, max-height 180ms ease;
+  .room-layout.drawer-closed {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .side-panel .panel-title {
-    cursor: pointer;
+  .side-panel.drawer-mode {
+    width: 360px;
+    max-width: 34vw;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 12px;
+    align-content: stretch;
   }
 
-  .side-panel .panel-title::after {
-    content: "Recolher";
-    margin-left: auto;
-    color: var(--yellow);
-    font-size: 11px;
+  .room-layout.drawer-closed .side-panel.drawer-mode {
+    width: auto;
+    max-width: none;
+  }
+
+  .side-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+    gap: 7px;
+    border: 1px solid rgba(255, 204, 0, 0.14);
+    border-radius: 999px;
+    background: rgba(5, 5, 5, 0.64);
+    padding: 7px;
+  }
+
+  .side-tab,
+  .side-close {
+    min-height: 38px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    padding: 0 10px;
+    font-size: 12px;
     font-weight: 900;
+    white-space: nowrap;
   }
 
-  .side-panel .panel.panel-collapsed > :not(.panel-title) {
+  .side-tab.active {
+    border-color: rgba(255, 204, 0, 0.55);
+    background: rgba(255, 204, 0, 0.16);
+    color: var(--yellow);
+  }
+
+  .side-close {
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--text);
+  }
+
+  .side-panel.drawer-mode .panel {
+    display: none;
+    min-height: 0;
+    max-height: calc(100vh - 250px);
+    overflow: auto;
+  }
+
+  .side-panel.drawer-mode .panel.active-drawer {
+    display: block;
+  }
+
+  .side-panel.drawer-mode .panel-title,
+  .side-panel.drawer-mode .chat-panel > h3 {
+    cursor: default;
+  }
+
+  .side-panel.drawer-mode .panel-title::after {
+    content: none;
+  }
+
+  .side-panel.drawer-mode.drawer-hidden {
+    width: auto;
+  }
+
+  .side-panel.drawer-mode.drawer-hidden .panel {
     display: none !important;
   }
 
-  .side-panel .panel.panel-collapsed .panel-title {
-    margin-bottom: 0;
+  .side-panel.drawer-mode.drawer-hidden .side-tabs {
+    grid-template-columns: auto;
+    border-radius: 18px;
   }
 
-  .side-panel .panel.panel-collapsed .panel-title::after {
-    content: "Abrir";
+  .side-panel.drawer-mode.drawer-hidden .side-tab {
+    display: none;
+  }
+
+  .side-panel.drawer-mode.drawer-hidden .side-close {
+    writing-mode: vertical-rl;
+    min-height: 130px;
+    border-color: rgba(255, 204, 0, 0.28);
+    color: var(--yellow);
   }
 
   .screen-share-tile {
@@ -155,6 +220,34 @@ style.textContent = `
       flex-basis: 100%;
     }
 
+    .room-layout,
+    .room-layout.drawer-closed {
+      grid-template-columns: 1fr;
+    }
+
+    .side-panel.drawer-mode {
+      width: 100%;
+      max-width: none;
+    }
+
+    .side-panel.drawer-mode .panel {
+      max-height: none;
+    }
+
+    .side-tabs {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border-radius: 22px;
+    }
+
+    .side-close {
+      grid-column: 1 / -1;
+    }
+
+    .side-panel.drawer-mode.drawer-hidden .side-close {
+      writing-mode: horizontal-tb;
+      min-height: 44px;
+    }
+
     .video-stage.has-screen-share {
       grid-template-columns: 1fr;
     }
@@ -201,25 +294,78 @@ function observeControls() {
   }
 }
 
-function makePanelsCollapsible() {
+function labelPanel(panel) {
+  if (panel.classList.contains("share-panel")) return { key: "link", label: "Link" };
+  if (panel.classList.contains("caption-health")) return { key: "captions", label: "Legendas" };
+  if (panel.classList.contains("chat-panel")) return { key: "chat", label: "Chat" };
+  return { key: "people", label: "Pessoas" };
+}
+
+function activateDrawer(key) {
   if (!sidePanel) return;
+  sidePanel.classList.remove("drawer-hidden");
+  roomLayout?.classList.remove("drawer-closed");
+
+  sidePanel.querySelectorAll(".side-tab").forEach((button) => {
+    button.classList.toggle("active", button.dataset.drawer === key);
+  });
+
+  sidePanel.querySelectorAll(".panel").forEach((panel) => {
+    panel.classList.toggle("active-drawer", panel.dataset.drawer === key);
+  });
+
+  const closeButton = sidePanel.querySelector(".side-close");
+  if (closeButton) closeButton.textContent = "Fechar";
+}
+
+function closeDrawer() {
+  sidePanel?.classList.add("drawer-hidden");
+  roomLayout?.classList.add("drawer-closed");
+  sidePanel?.querySelectorAll(".side-tab").forEach((button) => button.classList.remove("active"));
+  sidePanel?.querySelectorAll(".panel").forEach((panel) => panel.classList.remove("active-drawer"));
+  const closeButton = sidePanel?.querySelector(".side-close");
+  if (closeButton) closeButton.textContent = "Abrir painel";
+}
+
+function makeDrawerTabs() {
+  if (!sidePanel || sidePanel.dataset.drawerReady === "true") return;
+  sidePanel.dataset.drawerReady = "true";
+  sidePanel.classList.add("drawer-mode");
+
   const panels = [...sidePanel.querySelectorAll(".panel")];
+  const tabs = document.createElement("nav");
+  tabs.className = "side-tabs";
+  tabs.setAttribute("aria-label", "Painel da sala");
 
   for (const panel of panels) {
-    const title = panel.querySelector(".panel-title") || panel.querySelector("h3");
-    if (!title || title.dataset.toggleReady === "true") continue;
+    const config = labelPanel(panel);
+    panel.dataset.drawer = config.key;
+    panel.classList.remove("panel-collapsed");
 
-    title.dataset.toggleReady = "true";
-    title.setAttribute("role", "button");
-    title.setAttribute("tabindex", "0");
-    title.addEventListener("click", () => panel.classList.toggle("panel-collapsed"));
-    title.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        panel.classList.toggle("panel-collapsed");
-      }
-    });
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "side-tab";
+    button.dataset.drawer = config.key;
+    button.textContent = config.label;
+    button.addEventListener("click", () => activateDrawer(config.key));
+    tabs.append(button);
   }
+
+  const closeButton = document.createElement("button");
+  closeButton.type = "button";
+  closeButton.className = "side-close";
+  closeButton.textContent = "Fechar";
+  closeButton.addEventListener("click", () => {
+    if (sidePanel.classList.contains("drawer-hidden")) {
+      activateDrawer("people");
+    } else {
+      closeDrawer();
+    }
+  });
+  tabs.append(closeButton);
+
+  sidePanel.prepend(tabs);
+  activateDrawer("people");
 }
 
 function ensureScreenTile() {
@@ -293,5 +439,5 @@ screenButton?.addEventListener(
 );
 
 observeControls();
-makePanelsCollapsible();
+makeDrawerTabs();
 window.addEventListener("beforeunload", hideScreenShare);
