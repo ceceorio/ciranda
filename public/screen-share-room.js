@@ -6,6 +6,7 @@ const testCaptionButton = document.querySelector("#testCaptionButton");
 const voiceTranslationButton = document.querySelector("#voiceTranslationButton");
 const leaveButton = document.querySelector("#leaveButton");
 const localVideo = document.querySelector("#localVideo");
+const remoteVideo = document.querySelector("#remoteVideo");
 const videoStage = document.querySelector(".video-stage");
 const sidePanel = document.querySelector(".side-panel");
 const roomLayout = document.querySelector(".room-layout");
@@ -131,15 +132,6 @@ style.textContent = `
 
   .side-panel.drawer-mode .panel.active-drawer {
     display: block;
-  }
-
-  .side-panel.drawer-mode .panel-title,
-  .side-panel.drawer-mode .chat-panel > h3 {
-    cursor: default;
-  }
-
-  .side-panel.drawer-mode .panel-title::after {
-    content: none;
   }
 
   .side-panel.drawer-mode.drawer-hidden {
@@ -268,6 +260,13 @@ const controlLabels = new Map([
   [voiceTranslationButton, { on: "Audio traducao", off: "Audio traducao", onWhenPressed: true }],
 ]);
 
+const cameraTrackIds = new Set();
+const senderPeers = new WeakMap();
+const screenSenders = new WeakMap();
+const originalAddTrack = RTCPeerConnection.prototype.addTrack;
+const originalReplaceTrack = RTCRtpSender.prototype.replaceTrack;
+const originalMediaStreamAddTrack = MediaStream.prototype.addTrack;
+
 function applyControlState(button, config) {
   if (!button || !config) return;
   const pressed = button.getAttribute("aria-pressed") === "true";
@@ -383,12 +382,14 @@ function ensureScreenTile() {
   return tile;
 }
 
-function showScreenShare(stream) {
+function showScreenShare(stream, label = "Tela compartilhada") {
   const tile = ensureScreenTile();
   const preview = document.querySelector("#screenSharePreview");
+  const name = tile?.querySelector(".tile-name");
   if (!tile || !preview || !stream) return;
 
   preview.srcObject = stream;
+  if (name) name.textContent = label;
   tile.classList.remove("hidden");
   videoStage?.classList.add("has-screen-share");
 }
@@ -401,12 +402,89 @@ function hideScreenShare() {
   videoStage?.classList.remove("has-screen-share");
 }
 
-function waitForScreenStream(cameraStream, startedAt = Date.now()) {
+function rememberCameraTrack(track) {
+  if (track?.kind === "video") {
+    cameraTrackIds.add(track.id);
+  }
+}
+
+function patchWebRtcScreenShare() {
+  if (window.__cirandaScreenPatchReady) return;
+  window.__cirandaScreenPatchReady = true;
+
+  RTCPeerConnection.prototype.addTrack = function addTrack(track, ...streams) {
+    const sender = originalAddTrack.call(this, track, ...streams);
+    senderPeers.set(sender, this);
+
+    const isScreenActive = screenButton?.getAttribute("aria-pressed") === "true";
+    if (!isScreenActive) {
+      rememberCameraTrack(track);
+    }
+
+    return sender;
+  };
+
+  RTCRtpSender.prototype.replaceTrack = function replaceTrack(track) {
+    const peer = senderPeers.get(this);
+    const isNewScreenTrack = track?.kind === "video" && !cameraTrackIds.has(track.id);
+
+    if (peer && isNewScreenTrack) {
+      const stream = new MediaStream([track]);
+      const previousScreenSender = screenSenders.get(peer);
+      if (previousScreenSender) {
+        try {
+          peer.removeTrack(previousScreenSender);
+        } catch {
+          // The sender may already have been removed by the browser.
+        }
+      }
+
+      const screenSender = originalAddTrack.call(peer, track, stream);
+      senderPeers.set(screenSender, peer);
+      screenSenders.set(peer, screenSender);
+      showScreenShare(stream, "Sua tela compartilhada");
+      track.addEventListener(
+        "ended",
+        () => {
+          try {
+            peer.removeTrack(screenSender);
+          } catch {
+            // The peer connection may already be closed.
+          }
+          if (screenSenders.get(peer) === screenSender) {
+            screenSenders.delete(peer);
+          }
+          hideScreenShare();
+        },
+        { once: true },
+      );
+      return Promise.resolve();
+    }
+
+    return originalReplaceTrack.call(this, track);
+  };
+
+  MediaStream.prototype.addTrack = function addTrack(track) {
+    const alreadyHasCameraVideo = track?.kind === "video" && this.getVideoTracks().length > 0;
+    const isRemoteVideoStream = remoteVideo?.srcObject === this;
+
+    if (alreadyHasCameraVideo && isRemoteVideoStream) {
+      const screenStream = new MediaStream([track]);
+      showScreenShare(screenStream, "Tela compartilhada");
+      track.addEventListener("ended", hideScreenShare, { once: true });
+      return undefined;
+    }
+
+    return originalMediaStreamAddTrack.call(this, track);
+  };
+}
+
+function waitForLocalScreenPreview(cameraStream, startedAt = Date.now()) {
   const currentStream = localVideo?.srcObject;
   const isSharing = screenButton?.getAttribute("aria-pressed") === "true";
 
   if (currentStream && currentStream !== cameraStream && isSharing) {
-    showScreenShare(currentStream);
+    showScreenShare(currentStream, "Sua tela compartilhada");
     localVideo.srcObject = cameraStream;
     return;
   }
@@ -417,7 +495,7 @@ function waitForScreenStream(cameraStream, startedAt = Date.now()) {
   }
 
   if (Date.now() - startedAt < 15000) {
-    window.setTimeout(() => waitForScreenStream(cameraStream, startedAt), 250);
+    window.setTimeout(() => waitForLocalScreenPreview(cameraStream, startedAt), 250);
   }
 }
 
@@ -432,12 +510,18 @@ screenButton?.addEventListener(
         return;
       }
 
-      waitForScreenStream(cameraStream);
+      waitForLocalScreenPreview(cameraStream);
     }, 50);
   },
   true,
 );
 
+window.addEventListener("ciranda:local-screen-start", (event) => showScreenShare(event.detail?.stream, "Sua tela compartilhada"));
+window.addEventListener("ciranda:remote-screen-start", (event) => showScreenShare(event.detail?.stream, "Tela compartilhada"));
+window.addEventListener("ciranda:local-screen-stop", hideScreenShare);
+window.addEventListener("ciranda:remote-screen-stop", hideScreenShare);
+window.addEventListener("beforeunload", hideScreenShare);
+
+patchWebRtcScreenShare();
 observeControls();
 makeDrawerTabs();
-window.addEventListener("beforeunload", hideScreenShare);
